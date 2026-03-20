@@ -58,14 +58,13 @@ if prompt := st.chat_input("Ask CogniCore anything..."):
 
     with st.chat_message("assistant"):
         with st.spinner(f"CogniCore {category.upper()} is here..."):
-            response = grok_client.chat.completions.create(
-    model="grok-beta",
-    messages=messages,
-    stream=False
-)
+     response = grok_client.chat.completions.create(
+        model="grok-beta",
+        messages=messages,
+        stream=False
+    )
 full_response = response.choices[0].message.content
 st.markdown(full_response)
-            )
             full_response = ""
             placeholder = st.empty()
             for chunk in response:
