@@ -2,7 +2,7 @@ import streamlit as st
 import os
 from openai import OpenAI
 
-# Page config
+# Page setup
 st.set_page_config(
     page_title="CogniCore",
     page_icon="🧠",
@@ -12,7 +12,7 @@ st.set_page_config(
 st.title("🧠 CogniCore — All AIs in One")
 st.caption("Powered by Grok + specialist pods | Made for Pratham in Mumbai")
 
-# Sidebar for API keys
+# Sidebar API keys
 with st.sidebar:
     st.header("🔑 API Keys")
     xai_key = st.text_input(
@@ -25,14 +25,14 @@ with st.sidebar:
         type="password",
         value=os.getenv("OPENAI_API_KEY", "")
     )
-    st.info("Get free xAI key at: https://console.x.ai")
+    st.info("Get xAI key: https://console.x.ai → sign in → API Keys → Create new key")
 
-# Stop if no xAI key
+# Stop if no key
 if not xai_key:
-    st.error("Please enter your xAI API key in the sidebar to continue.")
+    st.error("Enter your xAI API key in the sidebar to start.")
     st.stop()
 
-# Create clients
+# Clients
 grok_client = OpenAI(
     api_key=xai_key,
     base_url="https://api.x.ai/v1"
@@ -41,66 +41,63 @@ grok_client = OpenAI(
 if openai_key:
     dalle_client = OpenAI(api_key=openai_key)
 
-# Specialist pods (simple classification)
+# Pods (specialists)
 specialist_prompts = {
-    "general": "You are CogniCore General — a helpful mix of ChatGPT, Claude, Gemini, and Grok. Be friendly, truthful, and fun.",
-    "writing": "You are CogniCore Writing expert — like Jasper, Copy.ai, Claude, Sudowrite. Write marketing, blogs, stories, anything perfectly.",
-    "coding": "You are CogniCore Coding boss — GitHub Copilot + Cursor level. Write, debug, explain code in any language.",
-    "image": "You are CogniCore Image Pod — Midjourney + DALL-E style. First output ONLY the perfect prompt inside <prompt>perfect prompt here</prompt> tags, then describe the image you would create.",
-    "research": "You are CogniCore Research Pod — like Elicit, Scite, Consensus. Summarize papers, give evidence-based answers, cite when possible.",
-    "other": "You are CogniCore — choose the best way to answer and respond accordingly."
+    "general": "You are CogniCore General — mix of ChatGPT, Claude, Gemini, Grok. Be helpful, fun, truthful.",
+    "writing": "You are CogniCore Writing expert — Jasper + Claude + Sudowrite level. Perfect copy, stories, posts.",
+    "coding": "You are CogniCore Coding boss — Copilot + Cursor level. Write/debug/explain any code.",
+    "image": "You are CogniCore Image Pod — Midjourney + DALL-E. Output ONLY <prompt>perfect prompt here</prompt> first, then describe.",
+    "research": "You are CogniCore Research — Elicit + Scite level. Summarize, cite, evidence-based.",
+    "other": "You are CogniCore — pick best approach and answer."
 }
 
 # Chat history
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Display previous messages
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
-# User input
+# Input
 if prompt := st.chat_input("Ask CogniCore anything..."):
-    # Add user message to history and display
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Router: classify which pod
-    with st.spinner("Routing to the best pod..."):
-        router_response = grok_client.chat.completions.create(
-            model="grok-2-latest",  # ← change to whatever model your console shows if this fails
-            messages=[
-                {"role": "user", "content": f"Classify this query into ONE word only: general, writing, coding, image, research, other.\nQuery: {prompt}"}
-            ],
-            max_tokens=10
-        )
-        category = router_response.choices[0].message.content.strip().lower()
+    # Router classify
+    with st.spinner("Routing to pod..."):
+        try:
+            router_response = grok_client.chat.completions.create(
+                model="grok-4.20-non-reasoning",
+                messages=[{"role": "user", "content": f"Classify ONE word: general, writing, coding, image, research, other.\nQuery: {prompt}"}],
+                max_tokens=10
+            )
+            category = router_response.choices[0].message.content.strip().lower()
+        except Exception as e:
+            st.error(f"Router failed: {str(e)}\nTry different model or check key.")
+            category = "general"
 
     if category not in specialist_prompts:
         category = "other"
 
-    # Build full messages with system prompt
     system_prompt = specialist_prompts[category]
     full_messages = [{"role": "system", "content": system_prompt}] + st.session_state.messages
 
-    # Get response (no streaming → clean output)
+    # Main response (no streaming)
     with st.chat_message("assistant"):
-        with st.spinner(f"CogniCore {category.upper()} Pod activated..."):
+        with st.spinner(f"{category.upper()} Pod..."):
             try:
                 response = grok_client.chat.completions.create(
-                    model="grok-2-latest",
+                    model="grok-4.20-non-reasoning",
                     messages=full_messages,
                     stream=False
                 )
                 full_response = response.choices[0].message.content
                 st.markdown(full_response)
             except Exception as e:
-                st.error(f"Oops! Something went wrong: {str(e)}\n\nCheck your API key or try a different model name.")
+                st.error(f"Error: {str(e)}\n\nPossible fixes:\n- Wrong model name? Try 'grok-4.20-reasoning' or 'grok-4-1-fast-non-reasoning'\n- Invalid/expired key? Get new one at console.x.ai")
 
-    # Save assistant response
     st.session_state.messages.append({"role": "assistant", "content": full_response})
 
-# Footer
-st.caption("CogniCore v0.2 • Simple & clean version • Fixed for Streamlit Cloud")
+st.caption("CogniCore v0.3 • Model: grok-4.20-non-reasoning • Fixed March 2026")
